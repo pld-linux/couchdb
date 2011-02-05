@@ -81,20 +81,6 @@ if [ "$1" = "0" ]; then
 	/sbin/chkconfig --del %{name}
 fi
 
-%postun
-
-%if %{with initscript}
-%post init
-/sbin/chkconfig --add %{name}
-%service %{name} restart
-
-%preun init
-if [ "$1" = "0" ]; then
-	%service -q %{name} stop
-	/sbin/chkconfig --del %{name}
-fi
-%endif
-
 %files
 %defattr(644,root,root,755)
 %doc AUTHORS BUGS CHANGES NEWS NOTICE README THANKS
@@ -107,9 +93,3 @@ fi
 %attr(700,couchdb,couchdb) %dir %{_localstatedir}/log/apache-couchdb
 %{_mandir}/man1/*
 %attr(754,root,root) /etc/rc.d/init.d/%{name}
-
-# initscript and its config
-%if %{with initscript}
-%attr(754,root,root) /etc/rc.d/init.d/%{name}
-%config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/%{name}
-%endif
