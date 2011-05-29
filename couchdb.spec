@@ -1,23 +1,28 @@
 #
-%define	snap	20080608 
+# TODO: init script, sysconfig
+#
 Summary:	A distributed document-oriented database
 Summary(pl.UTF-8):	Rozproszona baza danych oparta o dokumenty
 Name:		couchdb
-Version:	0.8
-Release:	0.%{snap}
+Version:	1.0.1
+Release:	0.1
 License:	Apache
 Group:		Applications
-Source0:	%{name}-%{version}-%{snap}.tar.gz
-# Source0-md5:	f2f7c819f3b562887ed0c336d36c6b38
-Source1:	%{name}.init
+Source0:	http://www.apache.net.pl/couchdb/1.0.1/apache-%{name}-%{version}.tar.gz
+# Source0-md5:	001cf286b72492617e9ffba271702a00
+#Source1:	%{name}.init
 URL:		http://incubator.apache.org/couchdb/
-BuildRequires:	rpmbuild(macros) >= 1.228
-Requires(post,preun):	/sbin/chkconfig
 BuildRequires:	autoconf
 BuildRequires:	automake
-BuildRequires:	erlang >= 
+BuildRequires:	curl-devel >= 7.18.0
+BuildRequires:	erlang
 BuildRequires:	help2man
 BuildRequires:	intltool
+BuildRequires:	js-devel
+BuildRequires:	libicu-devel >= 3.4.1
+BuildRequires:	pakchois-devel
+BuildRequires:	rpmbuild(macros) >= 1.228
+Requires(post,preun):	/sbin/chkconfig
 Requires(post,preun):	/sbin/chkconfig
 Requires(pre):	/bin/id
 Requires(pre):	/usr/bin/getgid
@@ -45,11 +50,9 @@ i indeksowanie za pośrednictwem opartego na tablicach silnika widoków
 używającego JavaScriptu jako głównego języka definicji widoku.
 
 %prep
-%setup -q -n %{name}
-touch ChangeLog # needed by ./configure
+%setup -q -n apache-%{name}-%{version}
 
 %build
-./bootstrap
 %configure --with-erlang=%{_libdir}/erlang/usr/include
 %{__make}
 
@@ -61,8 +64,10 @@ rm -rf $RPM_BUILD_ROOT
 
 rm -rf $RPM_BUILD_ROOT%{_defaultdocdir}/*
 
-mkdir -p $RPM_BUILD_ROOT/etc/rc.d/init.d
-install %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/%{name}
+install -d $RPM_BUILD_ROOT/etc/rc.d/init.d
+
+mv $RPM_BUILD_ROOT/etc/rc.d/{,init.d}/%{name}
+#install %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/%{name}
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -85,11 +90,14 @@ fi
 %defattr(644,root,root,755)
 %doc AUTHORS BUGS CHANGES NEWS NOTICE README THANKS
 %attr(755,root,root) %{_bindir}/*
-%{_datadir}/apache-couchdb
-%{_libdir}/apache-couchdb
-%dir %{_sysconfdir}/apache-couchdb/
-%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/apache-couchdb/couch.ini
-%attr(700,couchdb,couchdb) %dir %{_sharedstatedir}/apache-couchdb
-%attr(700,couchdb,couchdb) %dir %{_localstatedir}/log/apache-couchdb
+%{_datadir}/couchdb
+%{_libdir}/couchdb
+%dir %{_sysconfdir}/couchdb
+%dir %{_sysconfdir}/couchdb/default.d
+%dir %{_sysconfdir}/couchdb/local.d
+%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/couchdb/*.ini
+%attr(700,couchdb,couchdb) %dir %{_sharedstatedir}/couchdb
+%attr(700,couchdb,couchdb) %dir %{_localstatedir}/log/couchdb
 %{_mandir}/man1/*
 %attr(754,root,root) /etc/rc.d/init.d/%{name}
+#config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/%{name}
