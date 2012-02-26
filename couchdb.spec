@@ -1,5 +1,7 @@
 #
-# TODO: init script, sysconfig
+# TODO:
+# - init script, sysconfig
+# - merge apache-couchdb/apache-couchdb.spec here
 #
 Summary:	A distributed document-oriented database
 Summary(pl.UTF-8):	Rozproszona baza danych oparta o dokumenty
