@@ -2,81 +2,99 @@
 # TODO:
 # - init script, sysconfig
 # - merge apache-couchdb/apache-couchdb.spec here
-#
+# - tmpfiles.d
+# - system packages:
+#   erlang-ibrowse >= 1.5.3
+#   erlang-mochiweb
+#   erlang-oauth
+
+%define		mochiwebver	r113
+%define		ibrowsever	1.5.2
 Summary:	A distributed document-oriented database
 Summary(pl.UTF-8):	Rozproszona baza danych oparta o dokumenty
 Name:		couchdb
 Version:	1.0.1
 Release:	0.1
-License:	Apache
+License:	Apache v2.0
 Group:		Applications
-Source0:	http://www.apache.org/dist/couchdb/%{version}/%{name}-%{version}.tar.gz
+Source0:	http://www.apache.org/dist/couchdb/%{version}/apache-%{name}-%{version}.tar.gz
 # Source0-md5:	001cf286b72492617e9ffba271702a00
 Source1:	%{name}.init
 URL:		http://couchdb.apache.org/
-BuildRequires:	autoconf
-BuildRequires:	automake
+BuildRequires:	autoconf >= 2.59
+BuildRequires:	automake >= 1.6.3
 BuildRequires:	curl-devel >= 7.18.0
-BuildRequires:	erlang
+BuildRequires:	erlang >= 1:R12B5
 BuildRequires:	help2man
 BuildRequires:	intltool
 BuildRequires:	js-devel
 BuildRequires:	libicu-devel >= 3.4.1
+BuildRequires:	libtool
 BuildRequires:	pakchois-devel
+BuildRequires:	pkgconfig
 BuildRequires:	rpmbuild(macros) >= 1.228
-Requires(post,preun):	/sbin/chkconfig
 Requires(post,preun):	/sbin/chkconfig
 Requires(pre):	/bin/id
 Requires(pre):	/usr/bin/getgid
 Requires(pre):	/usr/sbin/groupadd
 Requires(pre):	/usr/sbin/useradd
+Requires:	erlang >= 1:R12B5
 Provides:	group(couchdb)
 Provides:	user(couchdb)
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
+%define	no_install_post_check_tmpfiles 1
+
 %description
 Apache CouchDB is a distributed, fault-tolerant and schema-free
-document-oriented database accessible via a RESTful HTTP/JSON
-API. Among other features, it provides robust, incremental replication
-with bi-directional conflict detection and resolution, and is
-queryable and indexable using a table-oriented view engine with
-JavaScript acting as the default view definition language.
+document-oriented database accessible via a RESTful HTTP/JSON API.
+Among other features, it provides robust, incremental replication with
+bi-directional conflict detection and resolution, and is queryable and
+indexable using a table-oriented view engine with JavaScript acting as
+the default view definition language.
 
 %description -l pl.UTF-8
-
 Apache CouchDB jest rozproszoną, odporną na błędy, nie wymagającą
 schematów, zorientowaną na dokument bazą danych z RESTowym API opartym
-o HTTP/JSON.  Między innymi zapewnia solidną, przyrostową replikację
-z dwukierunkowym wykrywaniem i rozwiązywaniem konfliktów, oraz odpytywanie
-i indeksowanie za pośrednictwem opartego na tablicach silnika widoków
-używającego JavaScriptu jako głównego języka definicji widoku.
+o HTTP/JSON. Między innymi zapewnia solidną, przyrostową replikację z
+dwukierunkowym wykrywaniem i rozwiązywaniem konfliktów, oraz
+odpytywanie i indeksowanie za pośrednictwem opartego na tablicach
+silnika widoków używającego JavaScriptu jako głównego języka definicji
+widoku.
 
 %prep
 %setup -q -n apache-%{name}-%{version}
 
 %build
-%configure --with-erlang=%{_libdir}/erlang/usr/include
+%{__libtoolize}
+%{__aclocal} -I m4
+%{__autoconf}
+%{__autoheader}
+%{__automake}
+%configure \
+	--with-erlang=%{_libdir}/erlang%{_includedir} \
+
 %{__make}
 
 %install
 rm -rf $RPM_BUILD_ROOT
-
 %{__make} install \
 	DESTDIR=$RPM_BUILD_ROOT
 
-rm -rf $RPM_BUILD_ROOT%{_defaultdocdir}/*
-
-install -d $RPM_BUILD_ROOT/etc/rc.d/init.d
+install -d $RPM_BUILD_ROOT/etc/{rc.d/init.d,sysconfig}
+mv $RPM_BUILD_ROOT%{_sysconfdir}/default/couchdb $RPM_BUILD_ROOT/etc/sysconfig
 
 mv $RPM_BUILD_ROOT/etc/rc.d/{,init.d}/%{name}
-#install %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/%{name}
+install %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/%{name}
+
+%{__rm} -r $RPM_BUILD_ROOT%{_docdir}/%{name}
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %pre
-%groupadd -g 230 couchdb
-%useradd -u 230 -g couchdb -c "CouchDB server" couchdb
+%groupadd -g 203 -r -f couchdb
+%useradd -u 203 -r -d /var/lib/couchdb -s /bin/sh -c "CouchDB Administrator" -g couchdb couchdb
 
 %post
 /sbin/chkconfig --add %{name}
@@ -88,18 +106,74 @@ if [ "$1" = "0" ]; then
 	/sbin/chkconfig --del %{name}
 fi
 
+%postun
+if [ "$1" = "0" ]; then
+	%userremove couchdb
+	%groupremove couchdb
+fi
+
 %files
 %defattr(644,root,root,755)
 %doc AUTHORS BUGS CHANGES NEWS NOTICE README THANKS
-%attr(755,root,root) %{_bindir}/*
-%{_datadir}/couchdb
-%{_libdir}/couchdb
 %dir %{_sysconfdir}/couchdb
 %dir %{_sysconfdir}/couchdb/default.d
-%dir %{_sysconfdir}/couchdb/local.d
-%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/couchdb/*.ini
-%attr(700,couchdb,couchdb) %dir %{_sharedstatedir}/couchdb
-%attr(700,couchdb,couchdb) %dir %{_localstatedir}/log/couchdb
-%{_mandir}/man1/*
+%attr(755,couchdb,couchdb) %dir %{_sysconfdir}/couchdb/local.d
+%attr(644,couchdb,couchdb) %config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/couchdb/default.ini
+%attr(644,couchdb,couchdb) %config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/couchdb/local.ini
+
 %attr(754,root,root) /etc/rc.d/init.d/%{name}
-#config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/%{name}
+%config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/%{name}
+
+# XXX: sbindir?
+%attr(755,root,root) %{_bindir}/couchdb
+%attr(755,root,root) %{_bindir}/couchjs
+%{_mandir}/man1/couchdb.1*
+%{_mandir}/man1/couchjs.1*
+
+%dir %{_libdir}/couchdb
+
+%dir %{_libdir}/couchdb/bin
+%attr(755,root,root) %{_libdir}/couchdb/bin/couchjs
+
+%dir %{_libdir}/couchdb/erlang
+%dir %{_libdir}/couchdb/erlang/lib
+# XXX: better have unversioned dirs?
+%dir %{_libdir}/couchdb/erlang/lib/couch-%{version}
+%dir %{_libdir}/couchdb/erlang/lib/couch-%{version}/ebin
+%{_libdir}/couchdb/erlang/lib/couch-%{version}/ebin/*.beam
+%{_libdir}/couchdb/erlang/lib/couch-%{version}/ebin/*.app
+# XXX check if this include is needed runtime
+%dir %{_libdir}/couchdb/erlang/lib/couch-%{version}/include
+%{_libdir}/couchdb/erlang/lib/couch-%{version}/include/couch_db.hrl
+%{_libdir}/couchdb/erlang/lib/couch-%{version}/include/couch_js_functions.hrl
+
+%dir %{_libdir}/couchdb/erlang/lib/couch-%{version}/priv
+%{_libdir}/couchdb/erlang/lib/couch-%{version}/priv/couchspawnkillable
+%{_libdir}/couchdb/erlang/lib/couch-%{version}/priv/stat_descriptions.cfg
+
+%dir %{_libdir}/couchdb/erlang/lib/couch-%{version}/priv/lib
+# XXX: check if .la is needed
+%{_libdir}/couchdb/erlang/lib/couch-%{version}/priv/lib/couch_icu_driver.la
+%attr(755,root,root) %{_libdir}/couchdb/erlang/lib/couch-%{version}/priv/lib/couch_icu_driver.so
+
+# XXX: better have unversioned dirs?
+%dir %{_libdir}/couchdb/erlang/lib/mochiweb-%{mochiwebver}
+%dir %{_libdir}/couchdb/erlang/lib/mochiweb-%{mochiwebver}/ebin
+%{_libdir}/couchdb/erlang/lib/mochiweb-%{mochiwebver}/ebin/*.beam
+%{_libdir}/couchdb/erlang/lib/mochiweb-%{mochiwebver}/ebin/*.app
+
+%dir %{_libdir}/couchdb/erlang/lib/etap
+%{_libdir}/couchdb/erlang/lib/etap/ebin
+
+%dir %{_libdir}/couchdb/erlang/lib/erlang-oauth
+%{_libdir}/couchdb/erlang/lib/erlang-oauth/ebin
+
+%dir %{_libdir}/couchdb/erlang/lib/ibrowse-%{ibrowsever}
+%{_libdir}/couchdb/erlang/lib/ibrowse-%{ibrowsever}/ebin
+
+%{_datadir}/couchdb
+
+%attr(700,couchdb,couchdb) %dir %{_sharedstatedir}/couchdb
+
+%config(noreplace) %verify(not md5 mtime size) /etc/logrotate.d/couchdb
+%attr(700,couchdb,couchdb) %dir %{_localstatedir}/log/couchdb
