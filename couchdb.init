@@ -63,6 +63,7 @@ stop() {
 	# Stop daemons.
 	msg_stopping "CouchDB"
 	killproc --pidfile $COUCHDB_PID couchdb -TERM
+	rm -f $COUCHDB_PID
 	rm -f /var/lock/subsys/couchdb
 }
 
