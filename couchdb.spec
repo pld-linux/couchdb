@@ -16,6 +16,7 @@ Summary(pl.UTF-8):	Rozproszona baza danych oparta o dokumenty
 Name:		couchdb
 Version:	1.0.3
 Release:	0.1
+License:	Apache v2.0
 Group:		Applications/Databases
 Source0:	http://www.apache.org/dist/couchdb/%{version}/apache-%{name}-%{version}.tar.gz
 # Source0-md5:	cfdc2ab751bf18049c5ef7866602d8ed
