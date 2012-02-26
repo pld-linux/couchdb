@@ -1,0 +1,465 @@
+From b513bbd1f13cf06aba9abb5e0e84df8c7b493b58 Mon Sep 17 00:00:00 2001
+From: Jan Horak <jhorak@redhat.com>
+Date: Thu, 5 May 2011 16:24:08 +0200
+Subject: [PATCH 11/13] Spidermonkey 1.8.5 patch
+
+---
+ src/couchdb/priv/couch_js/http.c |   66 ++++++++++++--------
+ src/couchdb/priv/couch_js/main.c |  132 +++++++++++++++++--------------------
+ src/couchdb/priv/couch_js/utf8.c |    4 +-
+ 3 files changed, 103 insertions(+), 99 deletions(-)
+
+diff --git a/src/couchdb/priv/couch_js/http.c b/src/couchdb/priv/couch_js/http.c
+index a672b66..8bd3cb6 100644
+--- a/src/couchdb/priv/couch_js/http.c
++++ b/src/couchdb/priv/couch_js/http.c
+@@ -49,12 +49,25 @@ go(JSContext* cx, JSObject* obj, HTTPData* http, char* body, size_t blen);
+ static JSString*
+ str_from_binary(JSContext* cx, char* data, size_t length);
+ 
++JSClass CouchHTTPClass;
++
+ static JSBool
+-constructor(JSContext* cx, JSObject* obj, uintN argc, jsval* argv, jsval* rval)
++constructor(JSContext* cx, uintN argc, jsval* vp)
+ {
+     HTTPData* http = NULL;
+     JSBool ret = JS_FALSE;
+-
++    jsval* argv = JS_ARGV(cx, vp);
++    JSObject *obj = NULL;
++    //if (JS_IsConstructing(cx, vp)) {
++       obj = JS_NewObject(cx, &CouchHTTPClass, NULL, NULL);
++       if (!obj)
++          return JS_FALSE;
++    //} else {
++    //   obj = JS_THIS_OBJECT(cx, vp);
++    //}
++    //printf("con %x\n", obj);
++
++    JSBool *con = JS_IsConstructing(cx, vp);
+     http = (HTTPData*) malloc(sizeof(HTTPData));
+     if(!http)
+     {
+@@ -67,6 +80,7 @@ constructor(JSContext* cx, JSObject* obj, uintN argc, jsval* argv, jsval* rval)
+     http->req_headers = NULL;
+     http->last_status = -1;
+ 
++    JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
+     if(!JS_SetPrivate(cx, obj, http))
+     {
+         JS_ReportError(cx, "Failed to set private CouchHTTP data.");
+@@ -90,6 +104,7 @@ destructor(JSContext* cx, JSObject* obj)
+     if(!http)
+     {
+         fprintf(stderr, "Unable to destroy invalid CouchHTTP instance.\n");
++        //printf("Unable to destroy invalid CouchHTTP instance.\n");
+     }
+     else
+     {
+@@ -100,12 +115,15 @@ destructor(JSContext* cx, JSObject* obj)
+ }
+ 
+ static JSBool
+-open(JSContext* cx, JSObject* obj, uintN argc, jsval* argv, jsval* rval)
+-{    
+-    HTTPData* http = (HTTPData*) JS_GetPrivate(cx, obj);
++open(JSContext* cx, uintN argc, jsval* vp)
++{   
++    JSObject *obj = JS_THIS_OBJECT(cx, vp);
++    //printf("open %x\n", obj);
++    HTTPData* http = (HTTPData*) JS_GetPrivate(cx, JS_THIS_OBJECT(cx, vp));
+     char* method = NULL;
+     char* url = NULL;
+     JSBool ret = JS_FALSE;
++    jsval* argv = JS_ARGV(cx, vp);
+     int methid;
+ 
+     if(!http)
+@@ -182,14 +200,16 @@ done:
+ }
+ 
+ static JSBool
+-setheader(JSContext* cx, JSObject* obj, uintN argc, jsval* argv, jsval* rval)
++setheader(JSContext* cx, uintN argc, jsval* vp)
+ {    
+-    HTTPData* http = (HTTPData*) JS_GetPrivate(cx, obj);
++    //printf("setheader %x\n", JS_THIS_OBJECT(cx, vp));
++    HTTPData* http = (HTTPData*) JS_GetPrivate(cx, JS_THIS_OBJECT(cx, vp));
+     char* keystr = NULL;
+     char* valstr = NULL;
+     char* hdrbuf = NULL;
+     size_t hdrlen = -1;
+     JSBool ret = JS_FALSE;
++    jsval* argv = JS_ARGV(cx, vp);
+ 
+     if(!http)
+     {
+@@ -245,12 +265,14 @@ done:
+ }
+ 
+ static JSBool
+-sendreq(JSContext* cx, JSObject* obj, uintN argc, jsval* argv, jsval* rval)
++sendreq(JSContext* cx, uintN argc, jsval* vp)
+ {
+-    HTTPData* http = (HTTPData*) JS_GetPrivate(cx, obj);
++    HTTPData* http = (HTTPData*) JS_GetPrivate(cx, JS_THIS_OBJECT(cx, vp));
++    //printf("sendreq %x\n", JS_THIS_OBJECT(cx, vp));
+     char* body = NULL;
+     size_t bodylen = 0;
+     JSBool ret = JS_FALSE;
++    jsval* argv = JS_ARGV(cx, vp);
+     
+     if(!http)
+     {
+@@ -268,7 +290,7 @@ sendreq(JSContext* cx, JSObject* obj, uintN argc, jsval* argv, jsval* rval)
+         }
+     }
+ 
+-    ret = go(cx, obj, http, body, bodylen);
++    ret = go(cx, JS_THIS_OBJECT(cx, argv), http, body, bodylen);
+ 
+ done:
+     if(body) free(body);
+@@ -276,7 +298,7 @@ done:
+ }
+ 
+ static JSBool
+-status(JSContext* cx, JSObject* obj, jsval idval, jsval* vp)
++status(JSContext* cx, JSObject* obj, jsid idval, jsval* vp)
+ {
+     HTTPData* http = (HTTPData*) JS_GetPrivate(cx, obj);
+     
+@@ -286,16 +308,8 @@ status(JSContext* cx, JSObject* obj, jsval idval, jsval* vp)
+         return JS_FALSE;
+     }
+     
+-    if(INT_FITS_IN_JSVAL(http->last_status))
+-    {
+-        *vp = INT_TO_JSVAL(http->last_status);
+-        return JS_TRUE;
+-    }
+-    else
+-    {
+-        JS_ReportError(cx, "INTERNAL: Invalid last_status");
+-        return JS_FALSE;
+-    }
++    *vp = INT_TO_JSVAL(http->last_status);
++    return JS_TRUE;
+ }
+ 
+ JSClass CouchHTTPClass = {
+@@ -306,7 +320,7 @@ JSClass CouchHTTPClass = {
+     JS_PropertyStub,
+     JS_PropertyStub,
+     JS_PropertyStub,
+-    JS_PropertyStub,
++    JS_StrictPropertyStub,
+     JS_EnumerateStub,
+     JS_ResolveStub,
+     JS_ConvertStub,
+@@ -320,10 +334,10 @@ JSPropertySpec CouchHTTPProperties[] = {
+ };
+ 
+ JSFunctionSpec CouchHTTPFunctions[] = {
+-    {"_open", open, 3, 0, 0},
+-    {"_setRequestHeader", setheader, 2, 0, 0},
+-    {"_send", sendreq, 1, 0, 0},
+-    {0, 0, 0, 0, 0}
++    {"_open", open, 3, 0},
++    {"_setRequestHeader", setheader, 2, 0},
++    {"_send", sendreq, 1, 0},
++    {0, 0, 0, 0}
+ };
+ 
+ JSObject*
+diff --git a/src/couchdb/priv/couch_js/main.c b/src/couchdb/priv/couch_js/main.c
+index 376aa15..2919448 100644
+--- a/src/couchdb/priv/couch_js/main.c
++++ b/src/couchdb/priv/couch_js/main.c
+@@ -10,6 +10,7 @@
+ // License for the specific language governing permissions and limitations under
+ // the License.
+ 
++#include <assert.h>
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <string.h>
+@@ -33,8 +34,25 @@ int gExitCode = 0;
+ #define FINISH_REQUEST(cx)
+ #endif
+ 
++static JSClass global_class = {
++    "GlobalClass",
++    JSCLASS_GLOBAL_FLAGS | JSCLASS_HAS_PRIVATE,
++    JS_PropertyStub,
++    JS_PropertyStub,
++    JS_PropertyStub,
++    JS_StrictPropertyStub,
++    JS_EnumerateStub,
++    JS_ResolveStub,
++    JS_ConvertStub,
++    JS_FinalizeStub,
++    JSCLASS_NO_OPTIONAL_MEMBERS
++};
++
++static void
++printerror(JSContext *cx, const char *mesg, JSErrorReport *report);
++
+ static JSBool
+-evalcx(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
++evalcx(JSContext *cx, uintN argc, jsval *vp)
+ {
+     JSString *str;
+     JSObject *sandbox;
+@@ -45,7 +63,7 @@ evalcx(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+     jsval v;
+ 
+     sandbox = NULL;
+-    if(!JS_ConvertArguments(cx, argc, argv, "S / o", &str, &sandbox))
++    if(!JS_ConvertArguments(cx, argc, JS_ARGV(cx, vp), "S / o", &str, &sandbox))
+     {
+         return JS_FALSE;
+     }
+@@ -59,22 +77,29 @@ evalcx(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+ 
+     SETUP_REQUEST(subcx);
+ 
+-    src = JS_GetStringChars(str);
+-    srclen = JS_GetStringLength(str);
+-
+     if(!sandbox)
+     {
+-        sandbox = JS_NewObject(subcx, NULL, NULL, NULL);
++        sandbox = JS_NewCompartmentAndGlobalObject(subcx, &global_class, NULL);
+         if(!sandbox || !JS_InitStandardClasses(subcx, sandbox)) goto done;
+     }
++    JS_SetGlobalObject(subcx, sandbox);
++
++    src = JS_GetStringCharsZ(subcx, str);
++    srclen = JS_GetStringLength(str);
+ 
+     if(srclen == 0)
+     {
+-        *rval = OBJECT_TO_JSVAL(sandbox);
++        JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(sandbox));
+     }
+     else
+     {
+-        JS_EvaluateUCScript(subcx, sandbox, src, srclen, NULL, 0, rval);
++        JSObject *script = JS_CompileUCScript(subcx, sandbox, src, srclen, NULL, 0);
++        jsval rval;
++        if(script)
++        {
++            JS_ExecuteScript(subcx, sandbox, script, &rval);
++            JS_SET_RVAL(cx, vp, rval);
++        }
+     }
+     
+     ret = JS_TRUE;
+@@ -86,21 +111,20 @@ done:
+ }
+ 
+ static JSBool
+-gc(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
++gc(JSContext *cx, uintN argc, jsval *argv)
+ {
+     JS_GC(cx);
+     return JS_TRUE;
+ }
+ 
+ static JSBool
+-print(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
++print(JSContext *cx, uintN argc, jsval *argv)
+ {
+     uintN i;
+     char *bytes;
+-
+     for(i = 0; i < argc; i++)
+     {
+-        bytes = enc_string(cx, argv[i], NULL);
++        bytes = enc_string(cx, JS_ARGV(cx, argv)[i], NULL);
+         if(!bytes) return JS_FALSE;
+ 
+         fprintf(stdout, "%s%s", i ? " " : "", bytes);
+@@ -113,9 +137,9 @@ print(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+ }
+ 
+ static JSBool
+-quit(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
++quit(JSContext *cx, uintN argc, jsval *argv)
+ {
+-    JS_ConvertArguments(cx, argc, argv, "/ i", &gExitCode);
++    JS_ConvertArguments(cx, argc, JS_ARGV(cx, argv), "/ i", &gExitCode);
+     return JS_FALSE;
+ }
+ 
+@@ -123,41 +147,23 @@ static char*
+ readfp(JSContext* cx, FILE* fp, size_t* buflen)
+ {
+     char* bytes = NULL;
+-    char* tmp = NULL;
+-    size_t used = 0;
+     size_t byteslen = 256;
+-    size_t readlen = 0;
++    ssize_t readlen;
+ 
+     bytes = JS_malloc(cx, byteslen);
+-    if(bytes == NULL) return NULL;
+-    
+-    while((readlen = js_fgets(bytes+used, byteslen-used, stdin)) > 0)
+-    {
+-        used += readlen;
+-
+-        if(bytes[used-1] == '\n')
+-        {
+-            bytes[used-1] = '\0';
+-            break;
+-        }
+-
+-        // Double our buffer and read more.
+-        byteslen *= 2;
+-        tmp = JS_realloc(cx, bytes, byteslen);
+-        if(!tmp)
+-        {
+-            JS_free(cx, bytes);
+-            return NULL;
+-        }
+-        bytes = tmp;
++    readlen = getline(&bytes, &byteslen, fp);
++    if (readlen <= 0) {
++       *buflen = 0;
++       return bytes;
+     }
+-
+-    *buflen = used;
++    if (bytes[readlen-1] == '\n')
++       bytes[readlen-1] = '\0';
++    *buflen = readlen;
+     return bytes;
+ }
+ 
+ static JSBool
+-readline(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
++readline(JSContext *cx, uintN argc, jsval *argv) {
+     jschar *chars;
+     JSString *str;
+     char* bytes;
+@@ -173,7 +179,7 @@ readline(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
+     /* Treat the empty string specially */
+     if(byteslen == 0)
+     {
+-        *rval = JS_GetEmptyStringValue(cx);
++        JS_SET_RVAL(cx, argv, JS_GetEmptyStringValue(cx));
+         JS_free(cx, bytes);
+         return JS_TRUE;
+     }
+@@ -191,28 +197,27 @@ readline(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
+     JS_free(cx, bytes);
+ 
+     if(!str) return JS_FALSE;
+-
+-    *rval = STRING_TO_JSVAL(str);
++    JS_SET_RVAL(cx, argv, STRING_TO_JSVAL(str));
+ 
+     return JS_TRUE;
+ }
+ 
+ static JSBool
+-seal(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
++seal(JSContext *cx, uintN argc, jsval *argv) {
+     JSObject *target;
+     JSBool deep = JS_FALSE;
+ 
+-    if (!JS_ConvertArguments(cx, argc, argv, "o/b", &target, &deep))
++    if (!JS_ConvertArguments(cx, argc, JS_ARGV(cx, argv), "o/b", &target, &deep))
+         return JS_FALSE;
+     if (!target)
+         return JS_TRUE;
+-    return JS_SealObject(cx, target, deep);
++    return JS_FreezeObject(cx, target);
+ }
+ 
+ static void
+ execute_script(JSContext *cx, JSObject *obj, const char *filename) {
+     FILE *file;
+-    JSScript *script;
++    JSObject *script;
+     jsval result;
+ 
+     if(!filename || strcmp(filename, "-") == 0)
+@@ -234,7 +239,6 @@ execute_script(JSContext *cx, JSObject *obj, const char *filename) {
+     if(script)
+     {
+         JS_ExecuteScript(cx, obj, script, &result);
+-        JS_DestroyScript(cx, script);
+     }
+ }
+ 
+@@ -248,27 +252,13 @@ printerror(JSContext *cx, const char *mesg, JSErrorReport *report)
+ }
+ 
+ static JSFunctionSpec global_functions[] = {
+-    {"evalcx", evalcx, 0, 0, 0},
+-    {"gc", gc, 0, 0, 0},
+-    {"print", print, 0, 0, 0},
+-    {"quit", quit, 0, 0, 0},
+-    {"readline", readline, 0, 0, 0},
+-    {"seal", seal, 0, 0, 0},
+-    {0, 0, 0, 0, 0}
+-};
+-
+-static JSClass global_class = {
+-    "GlobalClass",
+-    JSCLASS_GLOBAL_FLAGS,
+-    JS_PropertyStub,
+-    JS_PropertyStub,
+-    JS_PropertyStub,
+-    JS_PropertyStub,
+-    JS_EnumerateStub,
+-    JS_ResolveStub,
+-    JS_ConvertStub,
+-    JS_FinalizeStub,
+-    JSCLASS_NO_OPTIONAL_MEMBERS
++    {"evalcx", evalcx, 0, 0},
++    {"gc", gc, 0, 0},
++    {"print", print, 0, 0},
++    {"quit", quit, 0, 0},
++    {"readline", readline, 0, 0},
++    {"seal", seal, 0, 0},
++    {0, 0, 0, 0}
+ };
+ 
+ int
+@@ -291,7 +281,7 @@ main(int argc, const char * argv[])
+     
+     SETUP_REQUEST(cx);
+ 
+-    global = JS_NewObject(cx, &global_class, NULL, NULL);
++    global = JS_NewCompartmentAndGlobalObject(cx, &global_class, NULL);
+     if (!global) return 1;
+     if (!JS_InitStandardClasses(cx, global)) return 1;
+     
+diff --git a/src/couchdb/priv/couch_js/utf8.c b/src/couchdb/priv/couch_js/utf8.c
+index 699a6fe..9ccc256 100644
+--- a/src/couchdb/priv/couch_js/utf8.c
++++ b/src/couchdb/priv/couch_js/utf8.c
+@@ -129,7 +129,7 @@ enc_string(JSContext* cx, jsval arg, size_t* buflen)
+     str = JS_ValueToString(cx, arg);
+     if(!str) goto error;
+ 
+-    src = JS_GetStringChars(str);
++    src = JS_GetStringCharsZ(cx, str);
+     srclen = JS_GetStringLength(str);
+ 
+     if(!enc_charbuf(src, srclen, NULL, &byteslen)) goto error;
+@@ -283,4 +283,4 @@ error:
+ 
+ success:
+     return str;
+-}
+\ No newline at end of file
++}
+-- 
+1.7.6
+

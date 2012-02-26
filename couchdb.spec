@@ -22,6 +22,7 @@ Source0:	http://www.apache.org/dist/couchdb/%{version}/apache-%{name}-%{version}
 # Source0-md5:	cfdc2ab751bf18049c5ef7866602d8ed
 Source1:	%{name}.init
 Source2:	%{name}.tmpfiles
+Patch0:		js185.patch
 URL:		http://couchdb.apache.org/
 BuildRequires:	autoconf >= 2.59
 BuildRequires:	automake >= 1.6.3
@@ -29,7 +30,7 @@ BuildRequires:	curl-devel >= 7.18.0
 BuildRequires:	erlang >= %{erlangver}
 BuildRequires:	help2man
 BuildRequires:	intltool
-BuildRequires:	js-devel >= 1.8
+BuildRequires:	js-devel >= 2:1.8
 BuildRequires:	libicu-devel >= 3.4.1
 BuildRequires:	libtool
 BuildRequires:	pakchois-devel
@@ -65,6 +66,7 @@ widoku.
 
 %prep
 %setup -q -n apache-%{name}-%{version}
+%patch0 -p1
 
 %build
 %{__libtoolize}
