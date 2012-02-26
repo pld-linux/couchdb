@@ -37,54 +37,58 @@ fi
 
 start() {
 	# Check if the service is already running?
-	if [ ! -f /var/lock/subsys/couchdb ]; then
-		msg_starting couchdb
-                test -n $COUCHDB_PID \
-                    && touch $COUCHDB_PID \
-                    && chown $COUCHDB_USER $COUCHDB_PID
-		daemon --user $COUCHDB_USER /usr/bin/couchdb \
-                    -b -c "$COUCHDB_INI" -p "$COUCHDB_PID" \
-                    -o "$COUCHDB_STDOUT" -e "$COUCHDB_STDERR" \
-                    -r "$COUCHDB_RESPAWN"
-		RETVAL=$?
-		[ $RETVAL -eq 0 ] && touch /var/lock/subsys/couchdb
-	else
+	if [ -f /var/lock/subsys/couchdb ]; then
 		msg_already_running couchdb
+		return
 	fi
+
+	msg_starting couchdb
+			test -n $COUCHDB_PID \
+				&& touch $COUCHDB_PID \
+				&& chown $COUCHDB_USER $COUCHDB_PID
+	daemon --user $COUCHDB_USER /usr/bin/couchdb \
+				-b -c "$COUCHDB_INI" -p "$COUCHDB_PID" \
+				-o "$COUCHDB_STDOUT" -e "$COUCHDB_STDERR" \
+				-r "$COUCHDB_RESPAWN"
+	RETVAL=$?
+	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/couchdb
 }
 
 stop() {
-	if [ -f /var/lock/subsys/couchdb ]; then
-		# Stop daemons.
-		msg_stopping couchdb
-		killproc couchdb
-		killproc --pidfile $COUCHDB_PID couchdb -TERM
-		rm -f /var/lock/subsys/couchdb
-	else
+	if [ ! -f /var/lock/subsys/couchdb ]; then
 		msg_not_running couchdb
+		return
 	fi
+
+	# Stop daemons.
+	msg_stopping couchdb
+	killproc couchdb
+	killproc --pidfile $COUCHDB_PID couchdb -TERM
+	rm -f /var/lock/subsys/couchdb
 }
 
 reload() {
-	if [ -f /var/lock/subsys/couchdb ]; then
-		msg_reloading couchdb
-		killproc couchdb -HUP
-		killproc --pidfile $COUCHDB_PID couchdb -HUP
-		RETVAL=$?
-	else
+	if [ ! -f /var/lock/subsys/couchdb ]; then
 		msg_not_running couchdb
 		RETVAL=7
+		return
 	fi
+
+	msg_reloading couchdb
+	killproc couchdb -HUP
+	killproc --pidfile $COUCHDB_PID couchdb -HUP
+	RETVAL=$?
 }
 
 condrestart() {
-	if [ -f /var/lock/subsys/couchdb ]; then
-		stop
-		start
-	else
+	if [ ! -f /var/lock/subsys/couchdb ]; then
 		msg_not_running couchdb
 		RETVAL=$1
+		return
 	fi
+
+	stop
+	start
 }
 
 RETVAL=0
