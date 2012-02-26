@@ -20,7 +20,7 @@ COUCHDB_PID='/var/run/couchdb.pid'
 COUCHDB_USER='couchdb'
 COUCHDB_STDOUT='/dev/null'
 COUCHDB_STDERR='/dev/null'
-COUCHDB_RESPAWN_TIMEOUT='5'
+COUCHDB_RESPAWN_TIMEOUT='0'
 
 # Get service config - may override defaults
 [ -f /etc/sysconfig/couchdb ] && . /etc/sysconfig/couchdb
