@@ -118,6 +118,8 @@ case "$1" in
   	reload
 	;;
   status)
+    # Display the status of the running Apache CouchDB process.
+    $COUCHDB -s
 	status couchdb
 	RETVAL=$?
 	;;
