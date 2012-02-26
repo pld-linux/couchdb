@@ -10,10 +10,10 @@ Version:	1.0.1
 Release:	0.1
 License:	Apache
 Group:		Applications
-Source0:	http://www.apache.net.pl/couchdb/1.0.1/apache-%{name}-%{version}.tar.gz
+Source0:	http://www.apache.org/dist/couchdb/%{version}/%{name}-%{version}.tar.gz
 # Source0-md5:	001cf286b72492617e9ffba271702a00
-#Source1:	%{name}.init
-URL:		http://incubator.apache.org/couchdb/
+Source1:	%{name}.init
+URL:		http://couchdb.apache.org/
 BuildRequires:	autoconf
 BuildRequires:	automake
 BuildRequires:	curl-devel >= 7.18.0
