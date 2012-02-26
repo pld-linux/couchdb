@@ -1,10 +1,9 @@
 #!/bin/sh
 #
-# couchdb	apache couchdb init script
-#
-# chkconfig:	345 85 25
-#
-# description:	apache couchdb init script
+# couchdb	Starts CouchDB
+# chkconfig:	2345 84 25
+# description:	Apache CouchDB init script
+# pidfile:	/var/run/couchdb.pid
 #
 # $Id$
 
@@ -15,6 +14,7 @@
 . /etc/sysconfig/network
 
 # Set defaults
+COUCHDB="/usr/bin/couchdb"
 COUCHDB_INI='/etc/apache-couchdb/couch.ini'
 COUCHDB_PID='/var/run/couchdb.pid'
 COUCHDB_USER='couchdb'
@@ -28,7 +28,7 @@ COUCHDB_RESPAWN='5'
 # Check that networking is up.
 if is_yes "${NETWORKING}"; then
 	if [ ! -f /var/lock/subsys/network -a "$1" != stop -a "$1" != status ]; then
-		msg_network_down couchdb
+		msg_network_down "CouchDB"
 		exit 1
 	fi
 else
@@ -38,15 +38,15 @@ fi
 start() {
 	# Check if the service is already running?
 	if [ -f /var/lock/subsys/couchdb ]; then
-		msg_already_running couchdb
+		msg_already_running "CouchDB"
 		return
 	fi
 
-	msg_starting couchdb
-			test -n $COUCHDB_PID \
-				&& touch $COUCHDB_PID \
-				&& chown $COUCHDB_USER $COUCHDB_PID
-	daemon --user $COUCHDB_USER /usr/bin/couchdb \
+	msg_starting "CouchDB"
+	test -n $COUCHDB_PID \
+		&& touch $COUCHDB_PID \
+		&& chown $COUCHDB_USER $COUCHDB_PID
+	daemon --user $COUCHDB_USER $COUCHDB \
 				-b -c "$COUCHDB_INI" -p "$COUCHDB_PID" \
 				-o "$COUCHDB_STDOUT" -e "$COUCHDB_STDERR" \
 				-r "$COUCHDB_RESPAWN"
@@ -56,33 +56,31 @@ start() {
 
 stop() {
 	if [ ! -f /var/lock/subsys/couchdb ]; then
-		msg_not_running couchdb
+		msg_not_running "CouchDB"
 		return
 	fi
 
 	# Stop daemons.
-	msg_stopping couchdb
-	killproc couchdb
+	msg_stopping "CouchDB"
 	killproc --pidfile $COUCHDB_PID couchdb -TERM
 	rm -f /var/lock/subsys/couchdb
 }
 
 reload() {
 	if [ ! -f /var/lock/subsys/couchdb ]; then
-		msg_not_running couchdb
+		msg_not_running "CouchDB"
 		RETVAL=7
 		return
 	fi
 
-	msg_reloading couchdb
-	killproc couchdb -HUP
+	msg_reloading "CouchDB"
 	killproc --pidfile $COUCHDB_PID couchdb -HUP
 	RETVAL=$?
 }
 
 condrestart() {
 	if [ ! -f /var/lock/subsys/couchdb ]; then
-		msg_not_running couchdb
+		msg_not_running "CouchDB"
 		RETVAL=$1
 		return
 	fi
@@ -107,14 +105,8 @@ case "$1" in
   try-restart)
 	condrestart 0
 	;;
-# include force-reload here if program allows reloading without restart
-# otherwise remove reload action and support force-reload as restart if running
   reload|force-reload)
   	reload
-	;;
-# use this one if program doesn't support reloading without restart
-  force-reload)
-	condrestart 7
 	;;
   status)
 	status couchdb
