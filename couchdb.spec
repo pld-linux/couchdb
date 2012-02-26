@@ -41,6 +41,7 @@ Requires(pre):	/usr/bin/getgid
 Requires(pre):	/usr/sbin/groupadd
 Requires(pre):	/usr/sbin/useradd
 Requires:	erlang >= %{erlangver}
+Requires:	rc-scripts >= 0.4.0.17
 Provides:	group(couchdb)
 Provides:	user(couchdb)
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
