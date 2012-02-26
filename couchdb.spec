@@ -23,6 +23,7 @@ Source0:	http://www.apache.org/dist/couchdb/%{version}/apache-%{name}-%{version}
 Source1:	%{name}.init
 Source2:	%{name}.tmpfiles
 Patch0:		js185.patch
+Patch1:		pkg-config.patch
 URL:		http://couchdb.apache.org/
 BuildRequires:	autoconf >= 2.59
 BuildRequires:	automake >= 1.6.3
@@ -67,6 +68,7 @@ widoku.
 %prep
 %setup -q -n apache-%{name}-%{version}
 %patch0 -p1
+%patch1 -p1
 
 %build
 %{__libtoolize}
@@ -74,9 +76,7 @@ widoku.
 %{__autoconf}
 %{__autoheader}
 %{__automake}
-%configure \
-	--with-erlang=%{_libdir}/erlang%{_includedir} \
-
+%configure
 %{__make}
 
 %install

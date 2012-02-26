@@ -1,0 +1,107 @@
+From e93f577e0c33d6fa6c5464dfa423fb66746ad5e4 Mon Sep 17 00:00:00 2001
+From: Peter Lemenkov <lemenkov@gmail.com>
+Date: Tue, 31 May 2011 18:08:15 +0400
+Subject: [PATCH 13/13] Use pkg-config
+
+Signed-off-by: Peter Lemenkov <lemenkov@gmail.com>
+---
+ configure.ac                 |   32 ++++++++++++++------------------
+ src/couchdb/priv/Makefile.am |    4 ++--
+ 2 files changed, 16 insertions(+), 20 deletions(-)
+
+diff --git a/configure.ac b/configure.ac
+index 79fa8dd..0d81805 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -51,39 +51,36 @@ AC_ARG_WITH([erlang], [AC_HELP_STRING([--with-erlang=PATH],
+     ERLANG_FLAGS="-I$withval"
+ ], [
+     ERLANG_FLAGS="-I${libdir}/erlang/usr/include"
+-    ERLANG_FLAGS="$ERLANG_FLAGS -I/usr/lib/erlang/usr/include"
+-    ERLANG_FLAGS="$ERLANG_FLAGS -I/usr/local/lib/erlang/usr/include"
+-    ERLANG_FLAGS="$ERLANG_FLAGS -I/opt/local/lib/erlang/usr/include"
+ ])
+ 
++AC_PATH_PROG([PKG_CONFIG], [pkg-config])
++
++if test "x${PKG_CONFIG}" = "x"; then
++	AC_MSG_ERROR([You have to install pkg-config to compile CouchDB.])
++fi
++
+ AC_ARG_WITH([js-include], [AC_HELP_STRING([--with-js-include=PATH],
+     [set PATH to the SpiderMonkey include directory])], [
+     JS_INCLUDE="$withval"
+-    JS_FLAGS="-I$JS_INCLUDE"
++    JS_FLAGS="-I$JS_INCLUDE `pkg-config mozjs185 --cflags`"
+ ], [
+-    JS_FLAGS="-I/usr/include"
+-    JS_FLAGS="$JS_FLAGS -I/usr/include/js"
+-    JS_FLAGS="$JS_FLAGS -I/usr/include/mozjs"
+-    JS_FLAGS="$JS_FLAGS -I/usr/local/include"
+-    JS_FLAGS="$JS_FLAGS -I/opt/local/include"
+-    JS_FLAGS="$JS_FLAGS -I/usr/local/include/js"
+-    JS_FLAGS="$JS_FLAGS -I/opt/local/include/js"
++    JS_FLAGS=`pkg-config mozjs185 --cflags`
+ ])
+ 
+ AC_ARG_WITH([js-lib], [AC_HELP_STRING([--with-js-lib=PATH],
+     [set PATH to the SpiderMonkey library directory])],
+     [
+     JS_LIB_DIR=$withval
+-    JS_LIB_FLAGS="-L$withval"
++    JS_LIB_FLAGS="-L$withval `pkg-config mozjs185 --libs`"
+ ], [
+     JS_LIB_DIR=
++    JS_LIB_FLAGS=`pkg-config mozjs185 --libs`
+ ])
+ AC_SUBST(JS_LIB_DIR)
+ 
+ AC_ARG_VAR([ERLC_FLAGS], [general flags to prepend to ERLC_FLAGS])
+ AC_ARG_VAR([FLAGS], [general flags to prepend to LDFLAGS and CPPFLAGS])
+ 
+-LIB_FLAGS="$JS_LIB_FLAGS -L/usr/local/lib -L/opt/local/lib"
+ LIBS="$LIB_FLAGS $LIBS"
+ 
+ case "$(uname -s)" in
+@@ -98,11 +95,9 @@ case "$(uname -s)" in
+     LTCFLAGS="$CFLAGS"
+     ;;
+   *)
+-    # XP_UNIX required for jsapi.h and has been tested to work on Linux and Darwin.
+-    FLAGS="$LIB_FLAGS $ERLANG_FLAGS $JS_FLAGS -DXP_UNIX $FLAGS"
+-    CPPFLAGS="$FLAGS $CPPFLAGS"
++    CPPFLAGS="$FLAGS $ERLANG_FLAGS $JS_FLAGS $CPPFLAGS"
+     # manually linking libm is requred for FreeBSD 7.0
+-    LDFLAGS="$FLAGS -lm $LDFLAGS"
++    LDFLAGS="$FLAGS $JS_LIB_FLAGS -lm $LDFLAGS"
+     ;;
+ esac
+ 
+@@ -215,7 +210,8 @@ AC_ARG_WITH([win32-curl], [AC_HELP_STRING([--with-win32-curl=PATH],
+     CURL_LDFLAGS="-l$CURL_LIBS -lWs2_32 -lkernel32 -luser32 -ladvapi32 -lWldap32"
+ ], [
+     AC_CHECK_CURL([7.18.0])
+-    CURL_LDFLAGS=-lcurl
++    CURL_CFLAGS=`pkg-config libcurl --cflags`
++    CURL_LDFLAGS=`pkg-config libcurl --libs`
+ ])
+ 
+ AC_SUBST(CURL_CFLAGS)
+diff --git a/src/couchdb/priv/Makefile.am b/src/couchdb/priv/Makefile.am
+index 0a99cbf..5d0477e 100644
+--- a/src/couchdb/priv/Makefile.am
++++ b/src/couchdb/priv/Makefile.am
+@@ -46,8 +46,8 @@ COUCHJS_SRCS = \
+ 
+ locallibbin_PROGRAMS = couchjs
+ couchjs_SOURCES = $(COUCHJS_SRCS)
+-couchjs_LDFLAGS = $(CURL_LDFLAGS)
+-couchjs_CFLAGS = -D_BSD_SOURCE $(CURL_CFLAGS)
++couchjs_LDFLAGS = $(CURL_LDFLAGS) $(JS_LIB_FLAGS)
++couchjs_CFLAGS = -D_BSD_SOURCE $(CURL_CFLAGS) $(JS_FLAGS)
+ couchjs_LDADD = $(CURL_LDFLAGS) @JSLIB@
+ 
+ couchpriv_DATA = stat_descriptions.cfg
+-- 
+1.7.6
+
