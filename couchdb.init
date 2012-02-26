@@ -1,8 +1,8 @@
 #!/bin/sh
 #
-# couchdb	Starts CouchDB
+# couchdb	Apache CouchDB init script
 # chkconfig:	2345 84 25
-# description:	Apache CouchDB init script
+# description:	Apache CouchDB init script for the database server.
 # pidfile:	/var/run/couchdb.pid
 #
 # $Id$
@@ -20,7 +20,7 @@ COUCHDB_PID='/var/run/couchdb.pid'
 COUCHDB_USER='couchdb'
 COUCHDB_STDOUT='/dev/null'
 COUCHDB_STDERR='/dev/null'
-COUCHDB_RESPAWN='5'
+COUCHDB_RESPAWN_TIMEOUT='5'
 
 # Get service config - may override defaults
 [ -f /etc/sysconfig/couchdb ] && . /etc/sysconfig/couchdb
@@ -47,9 +47,10 @@ start() {
 		&& touch $COUCHDB_PID \
 		&& chown $COUCHDB_USER $COUCHDB_PID
 	daemon --user $COUCHDB_USER $COUCHDB \
-				-b -c "$COUCHDB_INI" -p "$COUCHDB_PID" \
-				-o "$COUCHDB_STDOUT" -e "$COUCHDB_STDERR" \
-				-r "$COUCHDB_RESPAWN"
+		-b -c "$COUCHDB_INI" -p "$COUCHDB_PID" \
+		-o "$COUCHDB_STDOUT" -e "$COUCHDB_STDERR" \
+		-r "$COUCHDB_RESPAWN_TIMEOUT" \
+		$COUCHDB_OPTIONS
 	RETVAL=$?
 	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/couchdb
 }
