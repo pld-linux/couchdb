@@ -20,6 +20,7 @@ Group:		Applications
 Source0:	http://www.apache.org/dist/couchdb/%{version}/apache-%{name}-%{version}.tar.gz
 # Source0-md5:	001cf286b72492617e9ffba271702a00
 Source1:	%{name}.init
+Source2:	%{name}.tmpfiles
 URL:		http://couchdb.apache.org/
 BuildRequires:	autoconf >= 2.59
 BuildRequires:	automake >= 1.6.3
@@ -32,7 +33,7 @@ BuildRequires:	libicu-devel >= 3.4.1
 BuildRequires:	libtool
 BuildRequires:	pakchois-devel
 BuildRequires:	pkgconfig
-BuildRequires:	rpmbuild(macros) >= 1.228
+BuildRequires:	rpmbuild(macros) >= 1.647
 Requires(post,preun):	/sbin/chkconfig
 Requires(pre):	/bin/id
 Requires(pre):	/usr/bin/getgid
@@ -42,8 +43,6 @@ Requires:	erlang >= 1:R12B5
 Provides:	group(couchdb)
 Provides:	user(couchdb)
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
-
-%define	no_install_post_check_tmpfiles 1
 
 %description
 Apache CouchDB is a distributed, fault-tolerant and schema-free
@@ -84,8 +83,11 @@ rm -rf $RPM_BUILD_ROOT
 install -d $RPM_BUILD_ROOT/etc/{rc.d/init.d,sysconfig}
 mv $RPM_BUILD_ROOT%{_sysconfdir}/default/couchdb $RPM_BUILD_ROOT/etc/sysconfig
 
-mv $RPM_BUILD_ROOT/etc/rc.d/{,init.d}/%{name}
+%{__rm} $RPM_BUILD_ROOT/etc/rc.d/%{name}
 install %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/%{name}
+
+install -d $RPM_BUILD_ROOT%{systemdtmpfilesdir}
+cp -p %{SOURCE2} $RPM_BUILD_ROOT%{systemdtmpfilesdir}/%{name}.conf
 
 %{__rm} -r $RPM_BUILD_ROOT%{_docdir}/%{name}
 
@@ -123,6 +125,7 @@ fi
 
 %attr(754,root,root) /etc/rc.d/init.d/%{name}
 %config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/%{name}
+%{systemdtmpfilesdir}/couchdb.conf
 
 # XXX: sbindir?
 %attr(755,root,root) %{_bindir}/couchdb
@@ -177,3 +180,5 @@ fi
 
 %config(noreplace) %verify(not md5 mtime size) /etc/logrotate.d/couchdb
 %attr(700,couchdb,couchdb) %dir %{_localstatedir}/log/couchdb
+
+%attr(755,couchdb,root) %dir /var/run/couchdb
